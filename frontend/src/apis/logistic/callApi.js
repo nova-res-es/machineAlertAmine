@@ -96,7 +96,7 @@ export const exportCalls = async (filters = {}) => {
     }
 
     const queryString = new URLSearchParams(filters).toString()
-    window.open(`https://machine-alert.onrender.com/${BASE_URL}/export?${queryString}&token=${token}`, "_blank")
+    window.open(`https://novares-machine-alert.onrender.com/${BASE_URL}/export?${queryString}&token=${token}`, "_blank")
   } catch (error) {
     console.error("Error in exportCalls:", error)
     throw error

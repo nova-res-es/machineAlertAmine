@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-  baseURL: `https://machine-alert.onrender.com/`,
+  baseURL: `https://novares-machine-alert.onrender.com/`,
   timeout: 5000,
 });
 

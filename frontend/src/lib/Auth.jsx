@@ -1,6 +1,6 @@
 import axios from "axios"
 
-const API_URL = "https://machine-alert.onrender.com/api/auth"
+const API_URL = "https://novares-machine-alert.onrender.com/api/auth"
 
 // Get current user
 export const getCurrentUser = async () => {
