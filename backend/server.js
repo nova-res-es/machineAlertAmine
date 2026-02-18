@@ -21,7 +21,7 @@ const PORT = process.env.PORT || 5000;
 app.use(
   cors({
     origin: [
-      "https://machine-alert-frontend.onrender.com",
+      "https://novares-machine-alert.vercel.app",
       "http://localhost:3000",
       "http://localhost:5173",
     ],
