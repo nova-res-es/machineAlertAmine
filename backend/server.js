@@ -12,6 +12,7 @@ const machineRoutes = require("./routes/gestionStockRoutes/machineRoutes");
 const callRoutes = require("./routes/logistic/callRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
 const factoryRoutes = require("./routes/factoryRoutes");
+const puestoRoutes = require("./routes/puestoRoutes");
 const { initCronJobs } = require("./crone/callStatusCron");
 
 const app = express();
@@ -59,6 +60,7 @@ app.use("/api/machines", machineRoutes);
 app.use("/api/calls", callRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/factories", factoryRoutes);
+app.use("/api/puestos", puestoRoutes);
 
 // Catch-all route to serve index.html for non-API frontend routes
 app.get("*", (req, res, next) => {

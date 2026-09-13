@@ -51,9 +51,16 @@ const FactoriesView = () => {
     }
   }
 
-  const handleFactoryClick = (factoryId) => {
-    navigate(`/calls/${factoryId}`)
+const handleFactoryClick = (factory) => {
+  const isUAP2 = factory.name?.trim().toUpperCase() === "UAP2"
+
+  if (isUAP2) {
+    navigate(`/puestos/${factory._id}`)
+    return
   }
+
+  navigate(`/calls/${factory._id}`)
+}
 
   const handleBackToDashboard = () => {
     navigate("/dashboard")
@@ -134,7 +141,7 @@ const FactoriesView = () => {
             >
               <Card
                 className="transition-all duration-200 border-2 cursor-pointer hover:shadow-lg hover:border-primary/20"
-                onClick={() => handleFactoryClick(factory._id)}
+                onClick={() => handleFactoryClick(factory)}
               >
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">

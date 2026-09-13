@@ -32,6 +32,8 @@ import EditCategory from "./pages/categories/EditCategory"
 import ShowFactories from "./pages/factories/ShowFactories"
 import CreateFactory from "./pages/factories/CreateFactory"
 import EditFactory from "./pages/factories/EditFactory"
+import PuestosView from "./pages/PuestosView"
+import CreatePuesto from "./pages/puestos/CreatePuesto"
 
 // Machine Pages
 import ShowMachines from "./pages/gestionStock/machine/ShowMachines"
@@ -78,7 +80,7 @@ function App() {
 
           {/* Calls View - Shows calls for a specific factory */}
           <Route path="/calls/:factoryId" element={<CallDashboard />} />
-
+          <Route path="/calls/:factoryId/puesto/:puestoId" element={<CallDashboard />} />
           {/* Legacy call route for backward compatibility */}
           <Route
             path="/call"
@@ -178,6 +180,16 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/puestos/:factoryId" element={<PuestosView />} />
+
+<Route
+  path="/puestos/create/:factoryId"
+  element={
+    <ProtectedRoute requiredRoles={managementRoles}>
+      <CreatePuesto />
+    </ProtectedRoute>
+  }
+/>
 
           {/* Machine routes - All authenticated users can view, Admin and PRODUCCION can manage */}
           <Route
