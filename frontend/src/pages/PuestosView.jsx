@@ -8,7 +8,13 @@ import { Badge } from "@/components/ui/badge"
 import { getFactoryById } from "@/apis/factoryApi"
 import { getPuestosByFactory } from "@/apis/puestoApi"
 import { useAuth } from "@/context/AuthContext"
-import { ArrowLeft, ArrowRight, MapPin, Plus, Loader2 } from "lucide-react"
+import {
+  ArrowLeft,
+  ArrowRight,
+  MapPin,
+  Plus,
+  Loader2,
+} from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
 const PuestosView = () => {
@@ -20,9 +26,7 @@ const PuestosView = () => {
   const [puestos, setPuestos] = useState([])
   const [loading, setLoading] = useState(true)
 
-  const canManagePuestos = user?.roles?.some((role) =>
-    ["Admin", "PRODUCCION"].includes(role),
-  )
+  const canManagePuestos = user?.roles?.some((role) => role === "Admin")
 
   useEffect(() => {
     const fetchFactoryAndPuestos = async () => {

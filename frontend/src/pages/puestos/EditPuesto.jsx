@@ -19,56 +19,69 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { createPuesto } from "@/apis/puestoApi"
+import { getPuestoById, updatePuesto } from "@/apis/puestoApi"
 import { getAllCategories } from "@/apis/categoryApi"
 import { getAllFactories, getFactoryById } from "@/apis/factoryApi"
 import { ArrowLeft, MapPin } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
-const CreatePuesto = () => {
-  const { factoryId: initialFactoryId } = useParams()
+const EditPuesto = () => {
+  const { factoryId: initialFactoryId, puestoId } = useParams()
   const navigate = useNavigate()
 
   const [puesto, setPuesto] = useState({
     name: "",
     description: "",
-    factoryId: initialFactoryId || "",
+    factoryId: "",
   })
 
   const [categories, setCategories] = useState([])
   const [factories, setFactories] = useState([])
   const [selectedCategory, setSelectedCategory] = useState("")
+  const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
-    const loadInitialData = async () => {
+    const loadPuesto = async () => {
       try {
-        const categoriesData = await getAllCategories()
+        const [puestoData, categoriesData] = await Promise.all([
+          getPuestoById(puestoId),
+          getAllCategories(),
+        ])
+
+        const factoryId = puestoData.factoryId?._id || puestoData.factoryId
+        const factoryData = await getFactoryById(factoryId)
+        const categoryId =
+          factoryData.categoryId?._id || factoryData.categoryId || ""
+
+        const factoriesData = await getAllFactories(categoryId)
+
         setCategories(categoriesData || [])
+        setFactories(factoriesData || [])
+        setSelectedCategory(categoryId)
 
-        if (initialFactoryId) {
-          const factoryData = await getFactoryById(initialFactoryId)
-          const categoryId =
-            factoryData.categoryId?._id || factoryData.categoryId || ""
-
-          setSelectedCategory(categoryId)
-
-          const factoriesData = await getAllFactories(categoryId)
-          setFactories(factoriesData || [])
-        }
+        setPuesto({
+          name: puestoData.name || "",
+          description: puestoData.description || "",
+          factoryId,
+        })
       } catch (error) {
-        console.error("Error al cargar los datos:", error)
+        console.error("Error al cargar el puesto:", error)
 
         toast({
           title: "Error",
-          description: "No se pudieron cargar categorías y fábricas",
+          description: "No se pudo cargar el puesto",
           variant: "destructive",
         })
+
+        navigate(initialFactoryId ? `/puestos/${initialFactoryId}` : "/puestos")
+      } finally {
+        setLoading(false)
       }
     }
 
-    loadInitialData()
-  }, [initialFactoryId])
+    loadPuesto()
+  }, [initialFactoryId, navigate, puestoId])
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -115,21 +128,21 @@ const CreatePuesto = () => {
     try {
       setIsSubmitting(true)
 
-      await createPuesto(puesto)
+      await updatePuesto(puestoId, puesto)
 
       toast({
-        title: "Puesto creado",
-        description: "El puesto se ha creado correctamente",
+        title: "Puesto actualizado",
+        description: "Los cambios se han guardado correctamente",
         variant: "success",
       })
 
       navigate(initialFactoryId ? `/puestos/${puesto.factoryId}` : "/puestos")
     } catch (error) {
-      console.error("Error al crear el puesto:", error)
+      console.error("Error al actualizar el puesto:", error)
 
       toast({
         title: "Error",
-        description: "No se pudo crear el puesto",
+        description: "No se pudo actualizar el puesto",
         variant: "destructive",
       })
     } finally {
@@ -137,13 +150,12 @@ const CreatePuesto = () => {
     }
   }
 
-  const handleCancel = () => {
-    if (initialFactoryId) {
-      navigate(`/puestos/${initialFactoryId}`)
-      return
-    }
-
-    navigate("/puestos")
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        Cargando puesto...
+      </div>
+    )
   }
 
   return (
@@ -152,7 +164,7 @@ const CreatePuesto = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-2xl font-bold">
             <MapPin className="w-6 h-6" />
-            Crear nuevo puesto
+            Editar puesto
           </CardTitle>
         </CardHeader>
 
@@ -240,13 +252,17 @@ const CreatePuesto = () => {
           </CardContent>
 
           <CardFooter className="flex justify-between">
-            <Button type="button" variant="outline" onClick={handleCancel}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => navigate(initialFactoryId ? `/puestos/${initialFactoryId}` : "/puestos")}
+            >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Cancelar
             </Button>
 
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Creando..." : "Crear puesto"}
+              {isSubmitting ? "Guardando..." : "Guardar cambios"}
             </Button>
           </CardFooter>
         </form>
@@ -255,4 +271,4 @@ const CreatePuesto = () => {
   )
 }
 
-export default CreatePuesto
+export default EditPuesto

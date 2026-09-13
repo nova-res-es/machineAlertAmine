@@ -34,6 +34,8 @@ import CreateFactory from "./pages/factories/CreateFactory"
 import EditFactory from "./pages/factories/EditFactory"
 import PuestosView from "./pages/PuestosView"
 import CreatePuesto from "./pages/puestos/CreatePuesto"
+import EditPuesto from "./pages/puestos/EditPuesto"
+import ShowPuestos from "./pages/puestos/ShowPuestos"
 
 // Machine Pages
 import ShowMachines from "./pages/gestionStock/machine/ShowMachines"
@@ -51,7 +53,7 @@ function App() {
   const adminRoles = ["Admin"]
   const productionRoles = ["PRODUCCION"]
   const logisticRoles = ["LOGISTICA"]
-  const managementRoles = ["Admin", "PRODUCCION"] // Roles that can manage categories/factories
+  const managementRoles = ["Admin"] // Roles that can manage categories/factories
 
   return (
     <AuthProvider>
@@ -180,6 +182,32 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+  path="/puestos"
+  element={
+    <ProtectedRoute requiredRoles={adminRoles}>
+      <ShowPuestos />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+path="/puestos/create"
+  element={
+    <ProtectedRoute requiredRoles={adminRoles}>
+      <CreatePuesto />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/puestos/edit/:puestoId"
+  element={
+    <ProtectedRoute requiredRoles={adminRoles}>
+      <EditPuesto />
+    </ProtectedRoute>
+  }
+/>
           <Route path="/puestos/:factoryId" element={<PuestosView />} />
 
 <Route
@@ -187,6 +215,14 @@ function App() {
   element={
     <ProtectedRoute requiredRoles={managementRoles}>
       <CreatePuesto />
+    </ProtectedRoute>
+  }
+/>
+<Route
+  path="/puestos/:factoryId/edit/:puestoId"
+  element={
+    <ProtectedRoute requiredRoles={adminRoles}>
+      <EditPuesto />
     </ProtectedRoute>
   }
 />

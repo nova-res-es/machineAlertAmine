@@ -13,7 +13,7 @@ const { protect } = require("../../middlewares/authMiddleware")
 const { hasRole } = require("../../middlewares/roleMiddleware")
 
 // Define the allowed roles for machine CRUD operations
-const MACHINE_CRUD_ROLES = ["Admin", "PRODUCCION"]
+const MACHINE_CRUD_ROLES = ["Admin"]
 
 // Create a new machine - only Admin or PRODUCCION roles
 router.post("/", protect, hasRole(MACHINE_CRUD_ROLES), createMachine)

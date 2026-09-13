@@ -8,10 +8,11 @@ import {
   Settings,
   LogOut,
   Menu,
+  MapPin,
   X,
-  User,
-  PhoneCall,
   Wrench,
+  PhoneCall,
+  User,
   Shield,
   Home,
   Factory,
@@ -79,7 +80,7 @@ export default function MainNav() {
   const isAdmin = hasRole("Admin")
   const isProduction = hasRole("PRODUCCION")
   const isLogistics = hasRole("LOGISTICA")
-  const canManage = isAdmin || isProduction
+  const canManage = isAdmin
 
   // Navigation structure for management users
   const managementNavigation = [
@@ -206,6 +207,19 @@ export default function MainNav() {
                         </p>
                       </Link>
                       <Link
+  to="/puestos"
+  className="block p-3 space-y-1 leading-none no-underline transition-colors rounded-md outline-none select-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+>
+  <div className="flex items-center gap-2">
+    <MapPin className="w-4 h-4" />
+    <div className="text-sm font-medium leading-none">Puestos</div>
+  </div>
+
+  <p className="text-sm leading-snug line-clamp-2 text-muted-foreground">
+    Gestionar puestos de las fábricas
+  </p>
+</Link>
+                      <Link
                         to="/machines"
                         className="block p-3 space-y-1 leading-none no-underline transition-colors rounded-md outline-none select-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
                       >
@@ -266,7 +280,7 @@ export default function MainNav() {
         )}
 
         {/* Simple navigation for logistics users */}
-        {user && isLogistics && !canManage && (
+        {user && (isLogistics || isProduction) && !canManage && (
           <nav className="hidden lg:flex lg:items-center lg:gap-6">
             <Link
               to="/dashboard"
@@ -356,10 +370,10 @@ export default function MainNav() {
       {/* Mobile Navigation */}
       {isOpen && (
         <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          exit={{ opacity: 0, height: 0 }}
-          className="border-t lg:hidden"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="absolute inset-x-0 top-full z-50 h-[calc(100vh-4rem)] overflow-y-auto border-t bg-background shadow-lg lg:hidden"
         >
           <div className="container px-4 py-4 space-y-4">
             {user ? (
@@ -426,6 +440,17 @@ export default function MainNav() {
                         <Building2 className="w-5 h-5" />
                         Fábricas
                       </Link>
+                      <Link
+  to="/puestos"
+  className={`flex items-center gap-3 p-3 rounded-md hover:bg-accent transition-colors ${
+    location.pathname === "/puestos"
+      ? "bg-accent text-accent-foreground"
+      : "text-muted-foreground"
+  }`}
+>
+  <MapPin className="w-5 h-5" />
+  Puestos
+</Link>
                       <Link
                         to="/machines"
                         className={`flex items-center gap-3 p-3 rounded-md hover:bg-accent transition-colors ${

@@ -271,7 +271,9 @@ exports.completeCall = async (req, res) => {
     const isLogistics =
       req.user.roles &&
       Array.isArray(req.user.roles) &&
-      req.user.roles.some((role) => role.toUpperCase() === "LOGISTICA" || role.toUpperCase() === "LOGÍSTICA")
+      req.user.roles.some((role) =>
+  ["LOGISTICA", "LOGÍSTICA", "ADMIN"].includes(role.toUpperCase()),
+)
 
     if (!isLogistics) {
       return res.status(403).json({ message: "Only LOGISTICA users can complete calls" })
@@ -402,7 +404,9 @@ exports.deleteCall = async (req, res) => {
     const isLogistics =
       req.user.roles &&
       Array.isArray(req.user.roles) &&
-      req.user.roles.some((role) => role.toUpperCase() === "LOGISTICA" || role.toUpperCase() === "LOGÍSTICA")
+      req.user.roles.some((role) =>
+  ["LOGISTICA", "LOGÍSTICA", "ADMIN"].includes(role.toUpperCase()),
+)
 
     if (!isLogistics) {
       return res.status(403).json({ message: "Only LOGISTICA users can delete calls" })

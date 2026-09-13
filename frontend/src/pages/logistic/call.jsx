@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { getCalls, createCall, completeCall, checkExpiredCalls, exportCalls, deleteCall } from "@/apis/logistic/callApi"
 import { getMachinesByFactory } from "@/apis/gestionStockApi/machineApi"
 import { getFactoryById } from "@/apis/factoryApi"
+import { getPuestoById } from "@/apis/puestoApi"
 import { useAuth } from "@/context/AuthContext"
 import { CallTimer } from "@/components/CallTimer"
 import { CallStats } from "@/components/CallStats"
@@ -54,13 +55,14 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 const CallDashboard = () => {
   // Get the current user from auth context
   const { user } = useAuth()
-  const { factoryId } = useParams()
+  const { factoryId, puestoId } = useParams()
   const navigate = useNavigate()
 
   const [selectedMachine, setSelectedMachine] = useState(null)
   const [selectedMachineDuration, setSelectedMachineDuration] = useState(90)
   const [machines, setMachines] = useState([])
   const [factory, setFactory] = useState(null)
+  const [puesto, setPuesto] = useState(null)
   const [calls, setCalls] = useState([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -91,6 +93,9 @@ const CallDashboard = () => {
 
   // Check if user has the PRODUCCION role
   const isProduction = useMemo(() => user?.roles?.includes("PRODUCCION"), [user?.roles])
+  const isAdmin = useMemo(() => user?.roles?.includes("Admin"), [user?.roles])
+  const canCreateCalls = isProduction || isAdmin
+  const canCompleteCalls = isLogistics || isAdmin
 
   /**
    * Fetches calls from the API with factory filter
@@ -195,7 +200,12 @@ const CallDashboard = () => {
       ])
 
       setFactory(factoryData)
-
+      if (puestoId) {
+  const puestoData = await getPuestoById(puestoId)
+  setPuesto(puestoData)
+} else {
+  setPuesto(null)
+}
       // Only show active machines in the dropdown
       const activeMachines = (machinesData || []).filter((machine) => machine.status === "active")
       setMachines(activeMachines)
@@ -208,7 +218,7 @@ const CallDashboard = () => {
       })
       navigate("/dashboard")
     }
-  }, [factoryId, navigate])
+  }, [factoryId, navigate, puestoId])
 
   // Update the remaining time for all calls
   const updateRemainingTime = useCallback(() => {
@@ -688,7 +698,7 @@ const CallDashboard = () => {
     )
   }
 
-  if (!isLogistics && !isProduction) {
+  if (!isLogistics && !isProduction && !isAdmin) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -732,7 +742,7 @@ const CallDashboard = () => {
             <div className="flex items-center">
               Usuario:{" "}
               <Badge variant="outline" className="px-3 py-1 ml-2 font-mono text-base">
-                {isProduction ? "PRODUCCION" : "LOGISTICA"}
+                {isAdmin ? "ADMIN" : isProduction ? "PRODUCCION" : "LOGISTICA"}
               </Badge>
             </div>
             <div className="flex items-center text-lg">
@@ -745,6 +755,12 @@ const CallDashboard = () => {
                 <Badge variant="secondary" className="ml-2">
                   {factory.categoryId.name}
                 </Badge>
+                {puesto && (
+  <>
+    <span className="text-muted-foreground">Puesto:</span>
+    <Badge variant="secondary">{puesto.name}</Badge>
+  </>
+)}
               </div>
             )}
           </div>
@@ -757,7 +773,7 @@ const CallDashboard = () => {
                 <Button
                   variant="outline"
                   size="lg"
-                  onClick={isLogistics ? () => handleCheckExpiredCalls(false) : () => fetchCalls(false)}
+                  onClick={canCompleteCalls ? () => handleCheckExpiredCalls(false) : () => fetchCalls(false)}
                   disabled={checkingExpired || refreshing}
                   className="min-h-[48px] min-w-[48px]"
                 >
@@ -771,7 +787,7 @@ const CallDashboard = () => {
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>{isLogistics ? "Verificar llamadas expiradas" : "Actualizar datos"}</p>
+                <p>{canCompleteCalls ? "Verificar llamadas expiradas" : "Actualizar datos"}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -783,7 +799,7 @@ const CallDashboard = () => {
       {/* Statistics Cards */}
       <CallStats calls={calls} />
 
-      {isProduction && (
+      {canCreateCalls && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1119,7 +1135,7 @@ const CallDashboard = () => {
                             </div>
                           </TableCell>
                           <TableCell className="py-4">
-                            {isLogistics && call.status === "Pendiente" && (
+                            {canCompleteCalls && call.status === "Pendiente" && (
                               <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
                                 {completingCall[call._id] ? (
                                   <Loader2 className="w-6 h-6 animate-spin" />

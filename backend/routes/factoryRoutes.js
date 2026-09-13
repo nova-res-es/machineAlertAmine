@@ -10,9 +10,10 @@ const {
 } = require("../controllers/factoryController")
 const { protect } = require("../middlewares/authMiddleware")
 
-
-// Create a new factory - only Admin or PRODUCCION roles
-router.post("/", protect, createFactory)
+const { hasRole } = require("../middlewares/roleMiddleware")
+const ADMIN_ROLES = ["Admin"]
+// Create a new factory - only Admin
+router.post("/", protect, hasRole(ADMIN_ROLES), createFactory)
 
 // Get all factories - authenticated users (with optional category filter)
 router.get("/", protect, getAllFactories)
@@ -23,10 +24,10 @@ router.get("/category/:categoryId", protect, getFactoriesByCategory)
 // Get a factory by ID - authenticated users
 router.get("/:id", protect, getFactoryById)
 
-// Update a factory - only Admin or PRODUCCION roles
-router.put("/:id", protect, updateFactory)
+// Update a factory - only Admin
+router.put("/:id", protect, hasRole(ADMIN_ROLES), updateFactory)
 
-// Delete a factory - only Admin or PRODUCCION roles
-router.delete("/:id", protect, deleteFactory)
+// Delete a factory - only Admin
+router.delete("/:id", protect, hasRole(ADMIN_ROLES), deleteFactory)
 
 module.exports = router
