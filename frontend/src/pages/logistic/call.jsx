@@ -96,6 +96,8 @@ const CallDashboard = () => {
   const isAdmin = useMemo(() => user?.roles?.includes("Admin"), [user?.roles])
   const canCreateCalls = isProduction || isAdmin
   const canCompleteCalls = isLogistics || isAdmin
+  const isUAP23 = factory?.name?.trim().toUpperCase() === "UAP2/3"
+  const zonaActual = isUAP23 ? (puestoId ? "Pintura" : "Inyección") : null
 
   /**
    * Fetches calls from the API with factory filter
@@ -681,12 +683,17 @@ const CallDashboard = () => {
 
   // Handle back navigation
   const handleBackToFactories = () => {
-    if (factory?.categoryId) {
-      navigate(`/factories/${factory.categoryId._id || factory.categoryId}`)
-    } else {
-      navigate("/dashboard")
-    }
+  if (isUAP23) {
+    navigate(puestoId ? `/puestos/${factoryId}` : `/zonas/${factoryId}`)
+    return
   }
+
+  if (factory?.categoryId) {
+    navigate(`/factories/${factory.categoryId._id || factory.categoryId}`)
+  } else {
+    navigate("/dashboard")
+  }
+}
 
   // If user is not authenticated or doesn't have either role, show loading or unauthorized message
   if (!user) {
@@ -731,7 +738,7 @@ const CallDashboard = () => {
               className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="w-4 h-4" />
-              Volver a Fábricas
+              {isUAP23 ? (puestoId ? "Volver a Puestos" : "Volver a Zonas") : "Volver a Fábricas"}
             </Button>
           </div>
           <h1 className="flex items-center gap-2 text-4xl font-bold tracking-tight">
@@ -755,6 +762,14 @@ const CallDashboard = () => {
                 <Badge variant="secondary" className="ml-2">
                   {factory.categoryId.name}
                 </Badge>
+                {zonaActual && (
+  <>
+    <span className="ml-4 text-muted-foreground">Zona:</span>
+    <Badge variant="secondary" className="ml-2">
+      {zonaActual}
+    </Badge>
+  </>
+)}
                 {puesto && (
   <>
     <span className="text-muted-foreground">Puesto:</span>

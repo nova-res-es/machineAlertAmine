@@ -27,6 +27,7 @@ const PuestosView = () => {
   const [loading, setLoading] = useState(true)
 
   const canManagePuestos = user?.roles?.some((role) => role === "Admin")
+  const isUAP23 = factory?.name?.trim().toUpperCase() === "UAP2/3"
 
   useEffect(() => {
     const fetchFactoryAndPuestos = async () => {
@@ -57,14 +58,19 @@ const PuestosView = () => {
   }, [factoryId])
 
   const handleBackToFactories = () => {
-    const categoryId = factory?.categoryId?._id || factory?.categoryId
-
-    if (categoryId) {
-      navigate(`/factories/${categoryId}`)
-    } else {
-      navigate("/dashboard")
-    }
+  if (isUAP23) {
+    navigate(`/zonas/${factoryId}`)
+    return
   }
+
+  const categoryId = factory?.categoryId?._id || factory?.categoryId
+
+  if (categoryId) {
+    navigate(`/factories/${categoryId}`)
+  } else {
+    navigate("/dashboard")
+  }
+}
 
   const handlePuestoClick = (puestoId) => {
     navigate(`/calls/${factoryId}/puesto/${puestoId}`)
@@ -90,7 +96,7 @@ const PuestosView = () => {
             className="flex items-center gap-1 mb-2 text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="w-4 h-4" />
-            Volver a Fábricas
+            {isUAP23 ? "Volver a Zonas" : "Volver a Fábricas"}
           </Button>
 
           <h1 className="text-4xl font-bold tracking-tight">
