@@ -22,6 +22,7 @@ import SettingsPage from "./pages/user/settings-page"
 // Dashboard Pages
 import Dashboard from "./pages/Dashboard"
 import FactoriesView from "./pages/FactoriesView"
+import ZonasView from "./pages/ZonasView"
 
 // Category Pages
 import ShowCategories from "./pages/categories/ShowCategories"
@@ -79,6 +80,7 @@ function App() {
 
           {/* Factories View - Shows factories for a category */}
           <Route path="/factories/:categoryId" element={<FactoriesView />} />
+          <Route path="/zonas/:factoryId" element={<ZonasView />} />
 
           {/* Calls View - Shows calls for a specific factory */}
           <Route path="/calls/:factoryId" element={<CallDashboard />} />

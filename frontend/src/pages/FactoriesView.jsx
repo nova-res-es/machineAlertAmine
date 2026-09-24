@@ -52,10 +52,10 @@ const FactoriesView = () => {
   }
 
 const handleFactoryClick = (factory) => {
-  const isUAP2 = factory.name?.trim().toUpperCase() === "UAP2"
+  const isUAP23 = factory.name?.trim().toUpperCase() === "UAP2/3"
 
-  if (isUAP2) {
-    navigate(`/puestos/${factory._id}`)
+  if (isUAP23) {
+    navigate(`/zonas/${factory._id}`)
     return
   }
 
