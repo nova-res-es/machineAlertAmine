@@ -27,12 +27,6 @@ axiosInstance.interceptors.request.use(
 // Enhanced API request function with retry mechanism
 export const apiRequest = async (method, url, data = null, isFormData = false, queryParams = {}) => {
 
-  // Build query string for GET requests
-  const queryString = Object.keys(queryParams).length > 0 ? `?${new URLSearchParams(queryParams).toString()}` : ""
-
-  // Append query string to URL for GET requests
-  const requestUrl = method.toUpperCase() === "GET" && queryString ? `${url}${queryString}` : url
-
  
     try {
       // Get token from localStorage
@@ -40,7 +34,7 @@ export const apiRequest = async (method, url, data = null, isFormData = false, q
 
       const config = {
         method,
-        url: requestUrl,
+        url,
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...(isFormData ? {} : { "Content-Type": "application/json" }),
