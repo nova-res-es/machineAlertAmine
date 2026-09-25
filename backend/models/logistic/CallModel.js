@@ -9,6 +9,21 @@ const CallSchema = new Schema(
         ref: "Machine",
       },
     ],
+        referenceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Reference",
+      default: null,
+    },
+    factoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Factory",
+      default: null,
+    },
+    zone: {
+      type: String,
+      enum: ["UAP1_INYECCION", "UAP23_PINTURA", "UAP23_INYECCION"],
+      default: null,
+    },
     date: {
       type: Date,
       default: Date.now,

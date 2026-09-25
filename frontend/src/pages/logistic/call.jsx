@@ -7,6 +7,7 @@ import { getCalls, createCall, completeCall, checkExpiredCalls, exportCalls, del
 import { getMachinesByFactory } from "@/apis/gestionStockApi/machineApi"
 import { getFactoryById } from "@/apis/factoryApi"
 import { getPuestoById } from "@/apis/puestoApi"
+import { getReferencesByPuesto } from "@/apis/referenceApi"
 import { useAuth } from "@/context/AuthContext"
 import { CallTimer } from "@/components/CallTimer"
 import { CallStats } from "@/components/CallStats"
@@ -61,6 +62,8 @@ const CallDashboard = () => {
   const [selectedMachine, setSelectedMachine] = useState(null)
   const [selectedMachineDuration, setSelectedMachineDuration] = useState(90)
   const [machines, setMachines] = useState([])
+  const [references, setReferences] = useState([])
+  const [selectedReference, setSelectedReference] = useState(null)
   const [factory, setFactory] = useState(null)
   const [puesto, setPuesto] = useState(null)
   const [calls, setCalls] = useState([])
@@ -98,129 +101,158 @@ const CallDashboard = () => {
   const canCompleteCalls = isLogistics || isAdmin
   const isUAP23 = factory?.name?.trim().toUpperCase() === "UAP2/3"
   const zonaActual = isUAP23 ? (puestoId ? "Pintura" : "Inyección") : null
+  const isPintura = isUAP23 && Boolean(puestoId)
 
   /**
    * Fetches calls from the API with factory filter
    */
   const fetchCalls = useCallback(
-    async (silent = false, page = pagination.page) => {
-      try {
-        if (!silent) setLoading(true)
-        setRefreshing(true)
+  async (silent = false, page = pagination.page) => {
+    if (!factoryId) return
 
-        // Add factory filter to API filters
-        const apiFilters = { ...filters }
-        if (apiFilters.machineId === "all") delete apiFilters.machineId
-        if (apiFilters.status === "all") delete apiFilters.status
-        if (!apiFilters.date) delete apiFilters.date
+    try {
+      if (!silent) setLoading(true)
+      setRefreshing(true)
 
-        // Add pagination parameters
-        const paginationParams = {
-          page: page,
-          limit: pagination.limit,
-        }
+      const apiFilters = { ...filters }
 
-        const response = await getCalls({ ...apiFilters, ...paginationParams })
+      if (apiFilters.machineId === "all") delete apiFilters.machineId
+      if (apiFilters.status === "all") delete apiFilters.status
+      if (!apiFilters.date) delete apiFilters.date
 
-        if (response && response.data) {
-          // Handle paginated response
-          const { calls: callsData, pagination: paginationData } = response.data
-
-          // Filter calls by factory (client-side filtering for machines in this factory)
-          if (callsData && Array.isArray(callsData)) {
-            const factoryMachineIds = machines.map((m) => m._id)
-            const factoryCalls = callsData.filter(
-              (call) =>
-                call.machines && call.machines.some((machine) => factoryMachineIds.includes(machine._id || machine)),
-            )
-
-            setCalls(factoryCalls)
-            setPagination({
-              page: paginationData.page || page,
-              limit: paginationData.limit || 10,
-              total: paginationData.total || 0,
-              totalPages: paginationData.totalPages || 0,
-            })
-          } else {
-            setCalls([])
-            setPagination((prev) => ({ ...prev, total: 0, totalPages: 0 }))
-          }
-        } else if (response && Array.isArray(response)) {
-          // Handle non-paginated response (fallback)
-          const factoryMachineIds = machines.map((m) => m._id)
-          const factoryCalls = response.filter(
-            (call) =>
-              call.machines && call.machines.some((machine) => factoryMachineIds.includes(machine._id || machine)),
-          )
-          setCalls(factoryCalls)
-          setPagination((prev) => ({
-            ...prev,
-            total: factoryCalls.length,
-            totalPages: Math.ceil(factoryCalls.length / prev.limit),
-          }))
-        } else {
-          console.warn("Invalid calls data received:", response)
-          if (!silent) {
-            toast({
-              title: "Advertencia",
-              description: "No se pudieron cargar las llamadas correctamente",
-              variant: "destructive",
-            })
-          }
-          setCalls([])
-          setPagination((prev) => ({ ...prev, total: 0, totalPages: 0 }))
-        }
-      } catch (error) {
-        console.error("Error fetching calls:", error)
-        if (!silent) {
-          setCalls([])
-          setPagination((prev) => ({ ...prev, total: 0, totalPages: 0 }))
-          toast({
-            title: "Error",
-            description: "Error al cargar las llamadas",
-            variant: "destructive",
-          })
-        }
-      } finally {
-        setLoading(false)
-        setRefreshing(false)
+      const paginationParams = {
+        page,
+        limit: pagination.limit,
       }
-    },
-    [filters, machines, pagination.page, pagination.limit],
-  )
+
+      const response = await getCalls(
+        {
+          ...apiFilters,
+          factoryId,
+          ...(isLogistics && isUAP23
+            ? { sortByDuration: "asc" }
+            : {}),
+        },
+        paginationParams,
+      )
+
+      if (response?.data) {
+        const { calls: callsData, pagination: paginationData } = response.data
+
+        setCalls(Array.isArray(callsData) ? callsData : [])
+
+        setPagination({
+          page: paginationData?.page || page,
+          limit: paginationData?.limit || pagination.limit,
+          total: paginationData?.total || 0,
+          totalPages: paginationData?.totalPages || 0,
+        })
+      } else if (Array.isArray(response)) {
+        setCalls(response)
+
+        setPagination((previous) => ({
+          ...previous,
+          total: response.length,
+          totalPages: Math.ceil(response.length / previous.limit),
+        }))
+      } else {
+        setCalls([])
+        setPagination((previous) => ({
+          ...previous,
+          total: 0,
+          totalPages: 0,
+        }))
+      }
+    } catch (error) {
+      console.error("Error fetching calls:", error)
+
+      if (!silent) {
+        setCalls([])
+        setPagination((previous) => ({
+          ...previous,
+          total: 0,
+          totalPages: 0,
+        }))
+
+        toast({
+          title: "Error",
+          description: "Error al cargar las llamadas",
+          variant: "destructive",
+        })
+      }
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  },
+  [
+    filters,
+    factoryId,
+    isLogistics,
+    isUAP23,
+    pagination.page,
+    pagination.limit,
+  ],
+)
 
   /**
    * Fetches factory and machines data
    */
   const fetchFactoryData = useCallback(async () => {
-    if (!factoryId) return
+  if (!factoryId) return
 
-    try {
-      const [factoryData, machinesData] = await Promise.all([
-        getFactoryById(factoryId),
-        getMachinesByFactory(factoryId),
+  try {
+    const [factoryData, machinesData] = await Promise.all([
+      getFactoryById(factoryId),
+      getMachinesByFactory(factoryId),
+    ])
+
+    setFactory(factoryData)
+
+    const isUAP23Factory =
+      factoryData?.name?.trim().toUpperCase() === "UAP2/3"
+
+    const isPaintingRoute = isUAP23Factory && Boolean(puestoId)
+
+    if (isPaintingRoute) {
+      const [puestoData, referencesData] = await Promise.all([
+        getPuestoById(puestoId),
+        getReferencesByPuesto(puestoId),
       ])
 
-      setFactory(factoryData)
-      if (puestoId) {
-  const puestoData = await getPuestoById(puestoId)
-  setPuesto(puestoData)
-} else {
-  setPuesto(null)
-}
-      // Only show active machines in the dropdown
-      const activeMachines = (machinesData || []).filter((machine) => machine.status === "active")
-      setMachines(activeMachines)
-    } catch (error) {
-      console.error("Error fetching factory data:", error)
-      toast({
-        title: "Error",
-        description: "No se pudieron cargar los datos de la fábrica",
-        variant: "destructive",
-      })
-      navigate("/dashboard")
+      setPuesto(puestoData)
+      setReferences(referencesData || [])
+      setMachines([])
+      return
     }
-  }, [factoryId, navigate, puestoId])
+
+    setPuesto(null)
+    setReferences([])
+
+    const activeMachines = (machinesData || []).filter(
+      (machine) => machine.status === "active",
+    )
+
+    const visibleMachines =
+      isUAP23Factory && !isLogistics
+        ? activeMachines.filter(
+            (machine) => machine.zone === "UAP23_INYECCION",
+          )
+        : activeMachines
+
+    setMachines(visibleMachines)
+  } catch (error) {
+    console.error("Error fetching factory data:", error)
+
+    toast({
+      title: "Error",
+      description: "No se pudieron cargar los datos de la fábrica",
+      variant: "destructive",
+    })
+
+    navigate("/dashboard")
+  }
+}, [factoryId, puestoId, isLogistics, navigate])
 
   // Update the remaining time for all calls
   const updateRemainingTime = useCallback(() => {
@@ -293,7 +325,7 @@ const CallDashboard = () => {
   }, [factoryId, fetchFactoryData])
 
   useEffect(() => {
-    if (machines.length > 0) {
+    if (factory) {
       fetchCalls()
 
       // Set up interval to update remaining time every second
@@ -317,73 +349,68 @@ const CallDashboard = () => {
         clearInterval(refreshInterval)
       }
     }
-  }, [machines, fetchCalls, handleCheckExpiredCalls, isLogistics, updateRemainingTime])
+  }, [factory, fetchCalls, handleCheckExpiredCalls, isLogistics, updateRemainingTime])
 
   /**
    * Handles creating a new call to logistics
    */
   const handleCallLogistics = useCallback(async () => {
-    if (!selectedMachine) {
-      toast({
-        title: "Error",
-        description: "Por favor selecciona una máquina",
-        variant: "destructive",
-      })
-      return
-    }
+  const selectedItem = isPintura
+    ? references.find((reference) => reference._id === selectedReference)
+    : machines.find((machine) => machine._id === selectedMachine)
 
-    try {
-      setCreatingCall(true)
-      console.log("Creating call for machine:", selectedMachine)
+  if (!selectedItem) {
+    toast({
+      title: "Error",
+      description: isPintura
+        ? "Por favor selecciona una referencia"
+        : "Por favor selecciona una máquina",
+      variant: "destructive",
+    })
+    return
+  }
 
-      const selectedMachineObj = machines.find((m) => m._id === selectedMachine)
+  try {
+    setCreatingCall(true)
 
-      const callData = {
-        machineId: selectedMachine,
-        callTime: new Date(),
-        date: new Date(),
-        status: "Pendiente",
-        createdBy: user?.roles?.includes("PRODUCCION") ? "PRODUCCION" : "LOGISTICA",
-      }
+    const callData = isPintura
+      ? { referenceId: selectedReference }
+      : { machineId: selectedMachine }
 
-      console.log("Call data:", callData)
-      const response = await createCall(callData)
+    await createCall(callData)
 
-      let newCall
-      if (response && response.data) {
-        newCall = response.data
-        if (!newCall.remainingTime && newCall.remainingTime !== 0) {
-          newCall.remainingTime = (newCall.duration || selectedMachineObj.duration || 90) * 60
-        }
-      } else {
-        newCall = {
-          _id: Date.now().toString(),
-          ...callData,
-          remainingTime: (selectedMachineObj.duration || 90) * 60,
-          machines: [{ name: selectedMachineObj?.name || "Máquina seleccionada" }],
-        }
-      }
-
-      setCalls((prevCalls) => [newCall, ...prevCalls])
+    if (isPintura) {
+      setSelectedReference(null)
+    } else {
       setSelectedMachine(null)
-      fetchCalls(true)
-
-      toast({
-        title: "Llamada creada",
-        description: "Se ha creado una llamada a LOGISTICA exitosamente",
-        variant: "success",
-      })
-    } catch (error) {
-      console.error("Error creating call:", error)
-      toast({
-        title: "Error",
-        description: "No se pudo crear la llamada a LOGISTICA",
-        variant: "destructive",
-      })
-    } finally {
-      setCreatingCall(false)
     }
-  }, [machines, selectedMachine, user?.roles, fetchCalls])
+
+    await fetchCalls(true)
+
+    toast({
+      title: "Llamada creada",
+      description: "La llamada a LOGISTICA se ha creado correctamente.",
+      variant: "success",
+    })
+  } catch (error) {
+    console.error("Error creating call:", error)
+
+    toast({
+      title: "Error",
+      description: "No se pudo crear la llamada a LOGISTICA.",
+      variant: "destructive",
+    })
+  } finally {
+    setCreatingCall(false)
+  }
+}, [
+  isPintura,
+  references,
+  selectedReference,
+  machines,
+  selectedMachine,
+  fetchCalls,
+])
 
   /**
    * Handles creating a new mole call to logistics (30 min timer)
@@ -468,7 +495,20 @@ const CallDashboard = () => {
     },
     [machines],
   )
+const handleReferenceSelect = useCallback(
+  (referenceId) => {
+    setSelectedReference(referenceId)
 
+    const selectedReferenceObj = references.find(
+      (reference) => reference._id === referenceId,
+    )
+
+    if (selectedReferenceObj) {
+      setSelectedMachineDuration(selectedReferenceObj.duration || 90)
+    }
+  },
+  [references],
+)
   /**
    * Handles marking a call as completed
    */
@@ -620,10 +660,21 @@ const CallDashboard = () => {
 
   // Get machine names for display
   const getMachineNames = useCallback((call) => {
-    if (!call.machines || call.machines.length === 0) return "-"
-    return call.machines.map((machine) => machine.name).join(", ")
-  }, [])
+  if (call.referenceId?.name) return call.referenceId.name
 
+  if (!call.machines || call.machines.length === 0) return "-"
+
+  return call.machines.map((machine) => machine.name).join(", ")
+}, [])
+const getZoneLabel = (zone) => {
+  const zones = {
+    UAP1_INYECCION: "Inyección UAP1",
+    UAP23_PINTURA: "Pintura",
+    UAP23_INYECCION: "Inyección",
+  }
+
+  return zones[zone] || "Sin zona"
+}
   // Get status badge variant
   const getStatusBadgeVariant = useCallback((status) => {
     switch (status) {
@@ -683,7 +734,7 @@ const CallDashboard = () => {
 
   // Handle back navigation
   const handleBackToFactories = () => {
-  if (isUAP23) {
+  if (isUAP23 && !isLogistics) {
     navigate(puestoId ? `/puestos/${factoryId}` : `/zonas/${factoryId}`)
     return
   }
@@ -738,7 +789,9 @@ const CallDashboard = () => {
               className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="w-4 h-4" />
-              {isUAP23 ? (puestoId ? "Volver a Puestos" : "Volver a Zonas") : "Volver a Fábricas"}
+              {isUAP23 && !isLogistics
+  ? (puestoId ? "Volver a Puestos" : "Volver a Zonas")
+  : "Volver a Fábricas"}
             </Button>
           </div>
           <h1 className="flex items-center gap-2 text-4xl font-bold tracking-tight">
@@ -824,45 +877,79 @@ const CallDashboard = () => {
             <CardHeader className="pb-4 bg-blue-100">
               <CardTitle className="text-2xl text-blue-800">Llamar a LOGISTICA</CardTitle>
               <CardDescription className="text-lg text-blue-700">
-                Selecciona una máquina de esta fábrica para crear una llamada a LOGISTICA
+               {isPintura
+                ? "Selecciona una referencia asignada a este puesto para crear una llamada a LOGISTICA"
+                : "Selecciona una máquina de esta zona para crear una llamada a LOGISTICA"}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-8 bg-gradient-to-r from-blue-50 to-indigo-50">
               <div className="flex flex-col space-y-6 lg:flex-row lg:space-y-0 lg:space-x-6">
                 <div className="flex-1">
-                  <Label htmlFor="machineSelect" className="text-lg font-semibold text-blue-800">
-                    Seleccionar máquina
-                  </Label>
-                  <div className="flex gap-3 mt-2">
-                    <div className="flex-1">
-                      <Select value={selectedMachine || ""} onValueChange={handleMachineSelect}>
-                        <SelectTrigger
-                          id="machineSelect"
-                          className="h-12 text-lg bg-white border-blue-300 hover:border-blue-400 focus:border-blue-500"
-                        >
-                          <SelectValue placeholder="Seleccionar máquina" />
-                        </SelectTrigger>
-                        <SelectContent className="border-blue-300">
-                          {machines && machines.length > 0 ? (
-                            machines.map((machine) => (
-                              <SelectItem
-                                key={machine._id}
-                                value={machine._id}
-                                className="py-3 text-lg hover:bg-blue-100 focus:bg-blue-100"
-                              >
-                                {machine.name} {machine.status !== "active" && `(${machine.status})`}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <SelectItem value="no-machines" disabled className="py-3 text-lg">
-                              No hay máquinas disponibles en esta fábrica
-                            </SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
+  <Label
+    htmlFor={isPintura ? "referenceSelect" : "machineSelect"}
+    className="text-lg font-semibold text-blue-800"
+  >
+    {isPintura ? "Seleccionar referencia" : "Seleccionar máquina"}
+  </Label>
+
+  <div className="flex gap-3 mt-2">
+    <div className="flex-1">
+      <Select
+        value={isPintura ? selectedReference || "" : selectedMachine || ""}
+        onValueChange={
+          isPintura ? handleReferenceSelect : handleMachineSelect
+        }
+      >
+        <SelectTrigger
+          id={isPintura ? "referenceSelect" : "machineSelect"}
+          className="h-12 text-lg bg-white border-blue-300 hover:border-blue-400 focus:border-blue-500"
+        >
+          <SelectValue
+            placeholder={
+              isPintura
+                ? "Seleccionar referencia"
+                : "Seleccionar máquina"
+            }
+          />
+        </SelectTrigger>
+
+        <SelectContent className="border-blue-300">
+          {isPintura ? (
+            references.length > 0 ? (
+              references.map((reference) => (
+                <SelectItem
+                  key={reference._id}
+                  value={reference._id}
+                  className="py-3 text-lg hover:bg-blue-100 focus:bg-blue-100"
+                >
+                  {reference.name}
+                </SelectItem>
+              ))
+            ) : (
+              <SelectItem value="no-references" disabled>
+                No hay referencias activas para este puesto
+              </SelectItem>
+            )
+          ) : machines.length > 0 ? (
+            machines.map((machine) => (
+              <SelectItem
+                key={machine._id}
+                value={machine._id}
+                className="py-3 text-lg hover:bg-blue-100 focus:bg-blue-100"
+              >
+                {machine.name}
+              </SelectItem>
+            ))
+          ) : (
+            <SelectItem value="no-machines" disabled>
+              No hay máquinas disponibles en esta zona
+            </SelectItem>
+          )}
+        </SelectContent>
+      </Select>
+    </div>
+  </div>
+</div>
 
                 <div className="flex-1">
                   <Label htmlFor="durationDisplay" className="text-lg font-semibold text-blue-800">
@@ -876,7 +963,7 @@ const CallDashboard = () => {
                     <div className="flex gap-3">
                       <Button
                         onClick={handleCallLogistics}
-                        disabled={!selectedMachine || creatingCall}
+                        disabled={!(isPintura ? selectedReference : selectedMachine) || creatingCall}
                         className="flex items-center h-12 gap-3 px-6 text-lg font-medium text-white bg-green-600 hover:bg-green-700"
                       >
                         {creatingCall ? (
@@ -886,7 +973,8 @@ const CallDashboard = () => {
                         )}
                         Llamar
                       </Button>
-                      <Button
+                      {!isPintura && (
+                        <Button
                         onClick={handleMoleCall}
                         disabled={!selectedMachine || creatingMoleCall}
                         variant="secondary"
@@ -899,6 +987,7 @@ const CallDashboard = () => {
                         )}
                         Cambio molde
                       </Button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1066,7 +1155,8 @@ const CallDashboard = () => {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50">
-                    <TableHead className="py-4 text-base font-bold">Nº DE MÁQUINA</TableHead>
+                    <TableHead className="py-4 text-base font-bold">MÁQUINA / REFERENCIA</TableHead>
+                    <TableHead className="py-4 text-base font-bold">ZONA</TableHead>
                     <TableHead className="py-4 text-base font-bold">FECHA</TableHead>
                     <TableHead className="py-4 text-base font-bold">HORA LLAMADA</TableHead>
                     <TableHead className="py-4 text-base font-bold">DURACIÓN (MIN)</TableHead>
@@ -1080,7 +1170,7 @@ const CallDashboard = () => {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="h-32 text-center">
+                      <TableCell colSpan={10} className="h-32 text-center">
                         <div className="flex items-center justify-center">
                           <Loader2 className="w-8 h-8 mr-3 animate-spin" />
                           <span className="text-lg">Cargando...</span>
@@ -1089,7 +1179,7 @@ const CallDashboard = () => {
                     </TableRow>
                   ) : paginatedCalls.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="h-32 text-lg text-center text-muted-foreground">
+                      <TableCell colSpan={10} className="h-32 text-lg text-center text-muted-foreground">
                         No hay llamadas registradas para esta fábrica
                       </TableCell>
                     </TableRow>
@@ -1115,9 +1205,18 @@ const CallDashboard = () => {
                                   CAMBIO MOLDE
                                 </Badge>
                               )}
-                            </div>
+                                                        </div>
                           </TableCell>
-                          <TableCell className="py-4 text-base">{new Date(call.date).toLocaleDateString()}</TableCell>
+
+                          <TableCell className="py-4 text-base">
+                            <Badge variant="secondary">
+                              {getZoneLabel(call.zone)}
+                            </Badge>
+                          </TableCell>
+
+                          <TableCell className="py-4 text-base">
+                            {new Date(call.date).toLocaleDateString()}
+                          </TableCell>
                           <TableCell className="py-4 text-base">
                             {new Date(call.callTime).toLocaleTimeString()}
                           </TableCell>

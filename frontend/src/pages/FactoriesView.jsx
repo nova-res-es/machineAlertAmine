@@ -54,7 +54,11 @@ const FactoriesView = () => {
 const handleFactoryClick = (factory) => {
   const isUAP23 = factory.name?.trim().toUpperCase() === "UAP2/3"
 
-  if (isUAP23) {
+  const isLogistics = user?.roles?.some((role) =>
+    ["LOGISTICA", "LOGÍSTICA"].includes(role?.toUpperCase()),
+  )
+
+  if (isUAP23 && !isLogistics) {
     navigate(`/zonas/${factory._id}`)
     return
   }

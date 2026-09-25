@@ -37,6 +37,8 @@ import PuestosView from "./pages/PuestosView"
 import CreatePuesto from "./pages/puestos/CreatePuesto"
 import EditPuesto from "./pages/puestos/EditPuesto"
 import ShowPuestos from "./pages/puestos/ShowPuestos"
+import CreateReference from "./pages/references/CreateReference"
+import ShowReferences from "./pages/references/ShowReferences"
 
 // Machine Pages
 import ShowMachines from "./pages/gestionStock/machine/ShowMachines"
@@ -184,6 +186,23 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+  path="/references"
+  element={
+    <ProtectedRoute requiredRoles={adminRoles}>
+      <ShowReferences />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/references/create"
+  element={
+    <ProtectedRoute requiredRoles={adminRoles}>
+      <CreateReference />
+    </ProtectedRoute>
+  }
+/>
           <Route
   path="/puestos"
   element={

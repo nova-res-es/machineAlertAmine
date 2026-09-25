@@ -1,5 +1,6 @@
 const Call = require("../../models/logistic/CallModel")
 const Machine = require("../../models/gestionStockModels/MachineModel") // Add this import
+const Reference = require("../../models/ReferenceModel")
 const excel = require("exceljs")
 // Remove this line:
 // const { sendCallCreationEmail } = require("../../utils/emailService")
@@ -87,13 +88,27 @@ exports.exportCallsToExcel = async (req, res) => {
 // Get all calls with optional filtering
  exports.getCalls = async (req, res) => {
   try {
-    const { machineId, date, status, factoryId, categoryId, page = 1, limit = 10 } = req.query
+    const {
+      machineId,
+      referenceId,
+      date,
+      status,
+      factoryId,
+      categoryId,
+      zone,
+      page = 1,
+      limit = 10,
+      sortByDuration,
+    } = req.query
 
-    // Build filter object
     const filter = {}
 
     if (machineId) {
       filter.machines = machineId
+    }
+
+    if (referenceId) {
+      filter.referenceId = referenceId
     }
 
     if (date) {
@@ -111,20 +126,17 @@ exports.exportCallsToExcel = async (req, res) => {
       filter.status = status
     }
 
-    // Convert page and limit to numbers
+    if (zone) {
+      filter.zone = zone
+    }
+
     const pageNum = Number.parseInt(page, 10)
     const limitNum = Number.parseInt(limit, 10)
-    const skip = (pageNum - 1) * limitNum
 
-    // Get total count for pagination
-    const total = await Call.countDocuments(filter)
-    const totalPages = Math.ceil(total / limitNum)
-
-    // Get paginated calls
     let calls = await Call.find(filter)
       .populate({
         path: "machines",
-        select: "name description status duration factoryId",
+        select: "name description status duration factoryId zone",
         populate: {
           path: "factoryId",
           select: "name description categoryId",
@@ -134,31 +146,73 @@ exports.exportCallsToExcel = async (req, res) => {
           },
         },
       })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limitNum)
+      .populate({
+        path: "referenceId",
+        select: "name description duration puestoId",
+        populate: {
+          path: "puestoId",
+          select: "name factoryId",
+          populate: {
+            path: "factoryId",
+            select: "name description categoryId",
+            populate: {
+              path: "categoryId",
+              select: "name description",
+            },
+          },
+        },
+      })
+      .populate({
+        path: "factoryId",
+        select: "name description categoryId",
+        populate: {
+          path: "categoryId",
+          select: "name description",
+        },
+      })
 
-    // Filter by factory or category if specified
     if (factoryId || categoryId) {
       calls = calls.filter((call) => {
-        if (!call.machines || call.machines.length === 0) return false
+        const callFactory =
+          call.factoryId ||
+          call.machines?.[0]?.factoryId ||
+          call.referenceId?.puestoId?.factoryId
 
-        return call.machines.some((machine) => {
-          if (factoryId && machine.factoryId) {
-            return machine.factoryId._id.toString() === factoryId
-          }
+        const currentFactoryId =
+          callFactory?._id?.toString() || callFactory?.toString()
 
-          if (categoryId && machine.factoryId && machine.factoryId.categoryId) {
-            return machine.factoryId.categoryId._id.toString() === categoryId
-          }
+        const currentCategoryId =
+          callFactory?.categoryId?._id?.toString() ||
+          callFactory?.categoryId?.toString()
 
-          return true
-        })
+        if (factoryId && currentFactoryId !== factoryId) {
+          return false
+        }
+
+        if (categoryId && currentCategoryId !== categoryId) {
+          return false
+        }
+
+        return true
       })
     }
 
-    // Calculate remaining time for each call
-    const callsWithRemainingTime = calls.map((call) => {
+    if (sortByDuration === "asc") {
+      calls.sort((firstCall, secondCall) => {
+        return (firstCall.duration || 90) - (secondCall.duration || 90)
+      })
+    } else {
+      calls.sort((firstCall, secondCall) => {
+        return new Date(secondCall.createdAt) - new Date(firstCall.createdAt)
+      })
+    }
+
+    const total = calls.length
+    const totalPages = Math.ceil(total / limitNum)
+    const skip = (pageNum - 1) * limitNum
+    const paginatedCalls = calls.slice(skip, skip + limitNum)
+
+    const callsWithRemainingTime = paginatedCalls.map((call) => {
       const callObj = call.toObject()
 
       if (callObj.status === "Pendiente") {
@@ -168,10 +222,9 @@ exports.exportCallsToExcel = async (req, res) => {
         const elapsedMinutes = Math.floor((now - callTime) / (1000 * 60))
         const remainingMinutes = Math.max(0, duration - elapsedMinutes)
 
-        callObj.remainingTime = remainingMinutes * 60 // Convert to seconds
+        callObj.remainingTime = remainingMinutes * 60
 
-        // Auto-expire if time is up
-        if (remainingMinutes <= 0 && callObj.status === "Pendiente") {
+        if (remainingMinutes <= 0) {
           callObj.status = "Expirada"
         }
       } else {
@@ -181,8 +234,7 @@ exports.exportCallsToExcel = async (req, res) => {
       return callObj
     })
 
-    // Return paginated response
-    res.status(200).json({
+    return res.status(200).json({
       data: {
         calls: callsWithRemainingTime,
         pagination: {
@@ -197,7 +249,8 @@ exports.exportCallsToExcel = async (req, res) => {
     })
   } catch (error) {
     console.error("Error fetching calls:", error)
-    res.status(500).json({
+
+    return res.status(500).json({
       message: "Server error while fetching calls.",
       error: error.message,
     })
@@ -206,56 +259,122 @@ exports.exportCallsToExcel = async (req, res) => {
 // Update the createCall function to send email notifications
 exports.createCall = async (req, res) => {
   try {
-    // Check if user is authenticated
     if (!req.user) {
-      return res.status(401).json({ message: "Not authorized, no token" });
+      return res.status(401).json({
+        message: "Not authorized, no token",
+      })
     }
 
-    const { machineId, duration, callType } = req.body;
+    const { machineId, referenceId, duration, callType } = req.body
 
-    if (!machineId) {
-      return res.status(400).json({ message: "Machine ID is required" });
+    if (!machineId && !referenceId) {
+      return res.status(400).json({
+        message: "Debes seleccionar una máquina o una referencia.",
+      })
     }
 
-    // Get the machine to use its duration (unless overridden)
-    const machine = await Machine.findById(machineId);
-    if (!machine) {
-      return res.status(404).json({ message: "Machine not found" });
+    if (machineId && referenceId) {
+      return res.status(400).json({
+        message: "Una llamada solo puede tener una máquina o una referencia.",
+      })
     }
 
-    // Determine the creator role from the user object
-    let creatorRole = "PRODUCCION"; // Default
+    let callData = {}
 
-    if (req.user.roles && Array.isArray(req.user.roles)) {
-      if (req.user.roles.some((role) => role.toUpperCase() === "LOGISTICA" || role.toUpperCase() === "LOGÍSTICA")) {
-        creatorRole = "LOGISTICA";
+    if (machineId) {
+      const machine = await Machine.findById(machineId)
+
+      if (!machine) {
+        return res.status(404).json({
+          message: "Machine not found",
+        })
+      }
+
+      callData = {
+        machines: [machineId],
+        factoryId: machine.factoryId,
+        zone: machine.zone,
+        duration: duration || machine.duration,
       }
     }
 
-    // Use provided duration or machine's duration
-    const callDuration = duration || machine.duration;
+    if (referenceId) {
+      const reference = await Reference.findById(referenceId).populate({
+        path: "puestoId",
+        populate: {
+          path: "factoryId",
+          select: "name",
+        },
+      })
+
+      if (!reference) {
+        return res.status(404).json({
+          message: "Referencia no encontrada.",
+        })
+      }
+
+      const isUAP23 =
+        reference.puestoId?.factoryId?.name?.trim().toUpperCase() === "UAP2/3"
+
+      if (!isUAP23) {
+        return res.status(400).json({
+          message: "Las referencias solo pueden utilizarse en Pintura de UAP2/3.",
+        })
+      }
+
+      callData = {
+        referenceId: reference._id,
+        factoryId: reference.puestoId.factoryId._id,
+        zone: "UAP23_PINTURA",
+        duration: duration || reference.duration,
+      }
+    }
+
+    let creatorRole = "PRODUCCION"
+
+    if (req.user.roles && Array.isArray(req.user.roles)) {
+      const isLogistics = req.user.roles.some(
+        (role) =>
+          role.toUpperCase() === "LOGISTICA" ||
+          role.toUpperCase() === "LOGÍSTICA",
+      )
+
+      if (isLogistics) {
+        creatorRole = "LOGISTICA"
+      }
+    }
 
     const newCall = new Call({
-      machines: [machineId], // Store as array of machine IDs
+      ...callData,
       createdBy: creatorRole,
       callTime: new Date(),
       date: new Date(),
       status: "Pendiente",
-      duration: callDuration,
-      callType: callType || "normal", // Default to normal if not specified
-    });
+      callType: callType || "normal",
+    })
 
-    const savedCall = await newCall.save();
+    const savedCall = await newCall.save()
 
-    // Populate the machine details before returning
-    const populatedCall = await Call.findById(savedCall._id).populate("machines", "name description status");
+    const populatedCall = await Call.findById(savedCall._id)
+      .populate("machines", "name description status duration factoryId zone")
+      .populate({
+        path: "referenceId",
+        select: "name description duration puestoId",
+        populate: {
+          path: "puestoId",
+          select: "name factoryId",
+        },
+      })
 
-    res.status(201).json(populatedCall);
+    return res.status(201).json(populatedCall)
   } catch (error) {
-    console.error("Error in createCall:", error);
-    res.status(500).json({ message: error.message });
+    console.error("Error in createCall:", error)
+
+    return res.status(500).json({
+      message: error.message,
+    })
   }
-};
+}
 
 // Complete a call
 exports.completeCall = async (req, res) => {

@@ -9,6 +9,7 @@ import {
   LogOut,
   Menu,
   MapPin,
+  BookOpen,
   X,
   Wrench,
   PhoneCall,
@@ -217,6 +218,19 @@ export default function MainNav() {
 
   <p className="text-sm leading-snug line-clamp-2 text-muted-foreground">
     Gestionar puestos de las fábricas
+  </p>
+</Link>
+                      <Link
+  to="/references"
+  className="block p-3 space-y-1 leading-none no-underline transition-colors rounded-md outline-none select-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+>
+  <div className="flex items-center gap-2">
+    <BookOpen className="w-4 h-4" />
+    <div className="text-sm font-medium leading-none">Referencias</div>
+  </div>
+
+  <p className="text-sm leading-snug line-clamp-2 text-muted-foreground">
+    Gestionar referencias de Pintura
   </p>
 </Link>
                       <Link
@@ -450,6 +464,17 @@ export default function MainNav() {
 >
   <MapPin className="w-5 h-5" />
   Puestos
+</Link>
+                      <Link
+  to="/references"
+  className={`flex items-center gap-3 p-3 rounded-md hover:bg-accent transition-colors ${
+    location.pathname.startsWith("/references")
+      ? "bg-accent text-accent-foreground"
+      : "text-muted-foreground"
+  }`}
+>
+  <BookOpen className="w-5 h-5" />
+  Referencias
 </Link>
                       <Link
                         to="/machines"

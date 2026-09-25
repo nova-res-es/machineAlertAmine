@@ -21,6 +21,7 @@ const EditMachine = () => {
     status: "active",
     duration: 90,
     factoryId: "",
+    zone: "",
   })
   const [factories, setFactories] = useState([])
   const [categories, setCategories] = useState([])
@@ -51,6 +52,7 @@ const EditMachine = () => {
         ...data,
         duration: data.duration || 90,
         factoryId: data.factoryId?._id || data.factoryId || "",
+        zone: data.zone || "",
       })
 
       // Set the category filter based on the machine's factory
@@ -112,6 +114,14 @@ const EditMachine = () => {
       })
       return
     }
+    if (!machine.zone) {
+  toast({
+    title: "Error",
+    description: "Por favor selecciona una zona",
+    variant: "destructive",
+  })
+  return
+}
 
     setIsSubmitting(true)
 
@@ -217,6 +227,35 @@ const EditMachine = () => {
               </Select>
             </div>
 
+            <div className="space-y-2">
+  <label htmlFor="zone" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+    Zona *
+  </label>
+
+  <Select
+    name="zone"
+    value={machine.zone}
+    onValueChange={(value) => handleChange({ target: { name: "zone", value } })}
+  >
+    <SelectTrigger className="w-full">
+      <SelectValue placeholder="Seleccionar zona" />
+    </SelectTrigger>
+
+    <SelectContent>
+      <SelectItem value="UAP1_INYECCION">
+        Inyección UAP1
+      </SelectItem>
+
+      <SelectItem value="UAP23_PINTURA">
+        Pintura UAP2/3
+      </SelectItem>
+
+      <SelectItem value="UAP23_INYECCION">
+        Inyección UAP2/3
+      </SelectItem>
+    </SelectContent>
+  </Select>
+</div>
             <div className="space-y-2">
               <label htmlFor="duration" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Duración (minutos)

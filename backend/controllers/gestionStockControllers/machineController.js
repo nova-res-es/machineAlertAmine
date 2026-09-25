@@ -4,7 +4,7 @@ const Factory = require("../../models/FactoryModel")
 // Create a new machine
 exports.createMachine = async (req, res) => {
   try {
-    const { name, description, status, duration, factoryId } = req.body
+    const { name, description, status, duration, factoryId, zone } = req.body
 
     // Check if the machine already exists
     const existingMachine = await Machine.findOne({ name })
@@ -28,6 +28,7 @@ exports.createMachine = async (req, res) => {
       status,
       duration: duration || 90, // Use provided duration or default to 90
       factoryId,
+      zone,
     })
 
     await machine.save()
@@ -109,7 +110,7 @@ exports.getMachineById = async (req, res) => {
 // Update a machine
 exports.updateMachine = async (req, res) => {
   try {
-    const { name, description, status, duration, factoryId } = req.body
+    const { name, description, status, duration, factoryId, zone } = req.body
 
     // Check if another machine with the same name exists (excluding current one)
     const existingMachine = await Machine.findOne({
@@ -130,7 +131,7 @@ exports.updateMachine = async (req, res) => {
 
     const updatedMachine = await Machine.findByIdAndUpdate(
       req.params.id,
-      { name, description, status, duration, factoryId },
+      { name, description, status, duration, factoryId, zone },
       { new: true, runValidators: true },
     ).populate({
       path: "factoryId",
