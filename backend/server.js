@@ -1,7 +1,6 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const path = require("path");
 require("dotenv").config();
 
 // Route imports
@@ -35,9 +34,9 @@ app.use(
 
 app.options("*", cors());
 app.use(express.json());
-
-// Serve static files from the frontend build folder
-app.use(express.static(path.join(__dirname, "build")));
+app.get("/", (_req, res) => {
+  res.status(200).json({ message: "Novares API activa" });
+});
 
 // MongoDB connection
 mongoose
@@ -64,13 +63,7 @@ app.use("/api/factories", factoryRoutes);
 app.use("/api/puestos", puestoRoutes);
 app.use("/api/references", referenceRoutes);
 
-// Catch-all route to serve index.html for non-API frontend routes
-app.get("*", (req, res, next) => {
-  if (req.path.startsWith("/api")) {
-    return next(); // Skip to 404 handler for unknown API routes
-  }
-  res.sendFile(path.join(__dirname, "build", "index.html"));
-});
+
 
 // Error handler middleware
 app.use((err, req, res, next) => {
