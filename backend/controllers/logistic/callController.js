@@ -1,6 +1,7 @@
 const Call = require("../../models/logistic/CallModel")
 const Machine = require("../../models/gestionStockModels/MachineModel") // Add this import
 const Reference = require("../../models/ReferenceModel")
+const Factory = require("../../models/FactoryModel")
 const excel = require("exceljs")
 // Remove this line:
 // const { sendCallCreationEmail } = require("../../utils/emailService")
@@ -86,7 +87,7 @@ exports.exportCallsToExcel = async (req, res) => {
 }
 
 // Get all calls with optional filtering
- exports.getCalls = async (req, res) => {
+exports.getCalls = async (req, res) => {
   try {
     const {
       machineId,
@@ -103,13 +104,10 @@ exports.exportCallsToExcel = async (req, res) => {
 
     const filter = {}
 
-    if (machineId) {
-      filter.machines = machineId
-    }
-
-    if (referenceId) {
-      filter.referenceId = referenceId
-    }
+    if (machineId) filter.machines = machineId
+    if (referenceId) filter.referenceId = referenceId
+    if (status) filter.status = status
+    if (zone) filter.zone = zone
 
     if (date) {
       const startDate = new Date(date)
@@ -122,141 +120,133 @@ exports.exportCallsToExcel = async (req, res) => {
       }
     }
 
-    if (status) {
-      filter.status = status
+    const pageNum = Math.max(Number.parseInt(page, 10) || 1, 1)
+    const limitNum = Math.min(
+      Math.max(Number.parseInt(limit, 10) || 10, 1),
+      100,
+    )
+    const skip = (pageNum - 1) * limitNum
+
+    let factoryIds = []
+
+    if (factoryId) {
+      factoryIds = [factoryId]
+    } else if (categoryId) {
+      factoryIds = await Factory.distinct("_id", { categoryId })
     }
-
-    if (zone) {
-      filter.zone = zone
-    }
-
-    const pageNum = Number.parseInt(page, 10)
-    const limitNum = Number.parseInt(limit, 10)
-
-    let calls = await Call.find(filter)
-      .populate({
-        path: "machines",
-        select: "name description status duration factoryId zone",
-        populate: {
-          path: "factoryId",
-          select: "name description categoryId",
-          populate: {
-            path: "categoryId",
-            select: "name description",
-          },
-        },
-      })
-      .populate({
-        path: "referenceId",
-        select: "name description duration puestoId",
-        populate: {
-          path: "puestoId",
-          select: "name factoryId",
-          populate: {
-            path: "factoryId",
-            select: "name description categoryId",
-            populate: {
-              path: "categoryId",
-              select: "name description",
-            },
-          },
-        },
-      })
-      .populate({
-        path: "factoryId",
-        select: "name description categoryId",
-        populate: {
-          path: "categoryId",
-          select: "name description",
-        },
-      })
 
     if (factoryId || categoryId) {
-      calls = calls.filter((call) => {
-        const callFactory =
-          call.factoryId ||
-          call.machines?.[0]?.factoryId ||
-          call.referenceId?.puestoId?.factoryId
+      if (factoryIds.length === 0) {
+        return res.status(200).json({
+          data: {
+            calls: [],
+            pagination: {
+              page: pageNum,
+              limit: limitNum,
+              total: 0,
+              totalPages: 0,
+              hasNextPage: false,
+              hasPrevPage: false,
+            },
+          },
+        })
+      }
 
-        const currentFactoryId =
-          callFactory?._id?.toString() || callFactory?.toString()
-
-        const currentCategoryId =
-          callFactory?.categoryId?._id?.toString() ||
-          callFactory?.categoryId?.toString()
-
-        if (factoryId && currentFactoryId !== factoryId) {
-          return false
-        }
-
-        if (categoryId && currentCategoryId !== categoryId) {
-          return false
-        }
-
-        return true
+      const machineIds = await Machine.distinct("_id", {
+        factoryId: { $in: factoryIds },
       })
+
+      // Incluye llamadas nuevas y llamadas antiguas que solo guardaban la máquina.
+      filter.$or = [
+        { factoryId: { $in: factoryIds } },
+        { machines: { $in: machineIds } },
+      ]
     }
 
-    if (sortByDuration === "asc") {
-  const statusOrder = {
-    Pendiente: 0,
-    Realizada: 1,
-    Expirada: 2,
-  }
+    const populateCalls = (query) =>
+      query
+        .populate("machines", "name description status duration factoryId zone")
+        .populate("referenceId", "name description duration puestoId")
 
-  calls.sort((firstCall, secondCall) => {
-    const statusDifference =
-      (statusOrder[firstCall.status] ?? 3) -
-      (statusOrder[secondCall.status] ?? 3)
+    let calls = []
+    let total = 0
 
-    // Primero, todas las pendientes.
-    if (statusDifference !== 0) {
-      return statusDifference
+    if (sortByDuration === "asc" && !status) {
+      const groups = [
+        { status: "Pendiente", sort: { duration: 1, createdAt: -1 } },
+        { status: "Realizada", sort: { createdAt: -1 } },
+        { status: "Expirada", sort: { createdAt: -1 } },
+      ]
+
+      let remainingSkip = skip
+      let remainingLimit = limitNum
+
+      for (const group of groups) {
+        const groupFilter = {
+          ...filter,
+          status: group.status,
+        }
+
+        const groupTotal = await Call.countDocuments(groupFilter)
+        total += groupTotal
+
+        if (remainingLimit === 0) continue
+
+        if (remainingSkip >= groupTotal) {
+          remainingSkip -= groupTotal
+          continue
+        }
+
+        const groupCalls = await populateCalls(
+          Call.find(groupFilter)
+            .sort(group.sort)
+            .skip(remainingSkip)
+            .limit(remainingLimit),
+        )
+
+        calls.push(...groupCalls)
+        remainingLimit -= groupCalls.length
+        remainingSkip = 0
+      }
+    } else {
+      total = await Call.countDocuments(filter)
+
+      const sort =
+        sortByDuration === "asc" && status === "Pendiente"
+          ? { duration: 1, createdAt: -1 }
+          : { createdAt: -1 }
+
+      calls = await populateCalls(
+        Call.find(filter)
+          .sort(sort)
+          .skip(skip)
+          .limit(limitNum),
+      )
     }
 
-    // Entre las pendientes, menor duración primero.
-    if (
-      firstCall.status === "Pendiente" &&
-      secondCall.status === "Pendiente"
-    ) {
-      return (firstCall.duration || 90) - (secondCall.duration || 90)
-    }
-
-    // Las realizadas y expiradas aparecen después.
-    return new Date(secondCall.createdAt) - new Date(firstCall.createdAt)
-  })
-} else {
-  calls.sort((firstCall, secondCall) => {
-    return new Date(secondCall.createdAt) - new Date(firstCall.createdAt)
-  })
-}
-
-    const total = calls.length
-    const totalPages = Math.ceil(total / limitNum)
-    const skip = (pageNum - 1) * limitNum
-    const paginatedCalls = calls.slice(skip, skip + limitNum)
-
-    const callsWithRemainingTime = paginatedCalls.map((call) => {
+    const callsWithRemainingTime = calls.map((call) => {
       const callObj = call.toObject()
 
       if (callObj.status === "Pendiente") {
         const now = new Date()
         const callTime = new Date(callObj.callTime)
         const duration = callObj.duration || 90
-        const elapsedMinutes = Math.floor((now - callTime) / (1000 * 60))
-        const remainingMinutes = Math.max(0, duration - elapsedMinutes)
+        const elapsedMinutes = Math.floor(
+          (now - callTime) / (1000 * 60),
+        )
 
-        callObj.remainingTime = remainingMinutes * 60
-
-        if (remainingMinutes <= 0) {
-          callObj.status = "Expirada"
-        }
+        callObj.remainingTime = Math.max(0, duration - elapsedMinutes) * 60
+        if (callObj.remainingTime === 0) {
+  callObj.status = "Expirada"
+}
       } else {
         callObj.remainingTime = 0
       }
 
       return callObj
     })
+
+    const totalPages = Math.ceil(total / limitNum)
 
     return res.status(200).json({
       data: {

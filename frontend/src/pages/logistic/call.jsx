@@ -346,21 +346,17 @@ const CallDashboard = () => {
 
       // Set up interval to check expired calls and refresh data every 15 seconds
       const refreshInterval = setInterval(() => {
-        if (document.visibilityState === "visible") {
-          if (isLogistics) {
-            handleCheckExpiredCalls(true)
-          } else {
-            fetchCalls(true)
-          }
-        }
-      }, 15000)
+  if (document.visibilityState === "visible") {
+    fetchCalls(true)
+  }
+}, 45000)
 
       return () => {
         clearInterval(timerInterval)
         clearInterval(refreshInterval)
       }
     }
-  }, [factory, fetchCalls, handleCheckExpiredCalls, isLogistics, updateRemainingTime])
+  }, [factory, fetchCalls, updateRemainingTime])
 
   /**
    * Handles creating a new call to logistics
@@ -833,7 +829,7 @@ const getZoneLabel = (zone) => {
                 <Badge variant="secondary" className="ml-2">
                   {factory.categoryId.name}
                 </Badge>
-                {zonaActual && (
+                {!isLogistics && zonaActual && (
   <>
     <span className="ml-4 text-muted-foreground">Zona:</span>
     <Badge variant="secondary" className="ml-2">
