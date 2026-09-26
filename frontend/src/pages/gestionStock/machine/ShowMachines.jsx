@@ -11,7 +11,7 @@ import { getAllMachines, getMachinesByFactory, getMachinesByCategory } from "@/a
 import { getAllFactories } from "@/apis/factoryApi"
 import { getAllCategories } from "@/apis/categoryApi"
 import { deleteMachine } from "@/apis/gestionStockApi/machineApi"
-import { Plus, Edit, Trash2, Clock, Building2, Factory, ArrowLeft } from "lucide-react"
+import { Plus, Edit, Trash2, Clock, Building2, Factory, ArrowLeft, MapPin } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
 import { toast } from "@/hooks/use-toast"
 
@@ -146,6 +146,16 @@ const ShowMachines = () => {
     }
   }
 
+  const getZoneText = (zone) => {
+    const zones = {
+      UAP1_INYECCION: "Inyección UAP1",
+      UAP23_PINTURA: "Pintura UAP2/3",
+      UAP23_INYECCION: "Inyección UAP2/3",
+    }
+
+    return zones[zone] || "Sin zona asignada"
+  }
+
   return (
     <div className="container p-4 mx-auto">
       <Card className="bg-white shadow-lg dark:bg-zinc-800">
@@ -259,6 +269,13 @@ const ShowMachines = () => {
                           )}
                         </div>
                       )}
+
+                      <div className="flex items-center mb-2">
+                        <MapPin className="w-4 h-4 mr-1 text-purple-500" />
+                        <span className="text-sm text-zinc-600 dark:text-zinc-300">
+                            Zona: {getZoneText(machine.zone)}
+                        </span>
+                      </div>
 
                       <div className="flex items-center mb-2">
                         <Clock className="w-4 h-4 mr-1 text-blue-500" />

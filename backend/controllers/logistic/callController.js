@@ -198,14 +198,38 @@ exports.exportCallsToExcel = async (req, res) => {
     }
 
     if (sortByDuration === "asc") {
-      calls.sort((firstCall, secondCall) => {
-        return (firstCall.duration || 90) - (secondCall.duration || 90)
-      })
-    } else {
-      calls.sort((firstCall, secondCall) => {
-        return new Date(secondCall.createdAt) - new Date(firstCall.createdAt)
-      })
+  const statusOrder = {
+    Pendiente: 0,
+    Realizada: 1,
+    Expirada: 2,
+  }
+
+  calls.sort((firstCall, secondCall) => {
+    const statusDifference =
+      (statusOrder[firstCall.status] ?? 3) -
+      (statusOrder[secondCall.status] ?? 3)
+
+    // Primero, todas las pendientes.
+    if (statusDifference !== 0) {
+      return statusDifference
     }
+
+    // Entre las pendientes, menor duración primero.
+    if (
+      firstCall.status === "Pendiente" &&
+      secondCall.status === "Pendiente"
+    ) {
+      return (firstCall.duration || 90) - (secondCall.duration || 90)
+    }
+
+    // Las realizadas y expiradas aparecen después.
+    return new Date(secondCall.createdAt) - new Date(firstCall.createdAt)
+  })
+} else {
+  calls.sort((firstCall, secondCall) => {
+    return new Date(secondCall.createdAt) - new Date(firstCall.createdAt)
+  })
+}
 
     const total = calls.length
     const totalPages = Math.ceil(total / limitNum)

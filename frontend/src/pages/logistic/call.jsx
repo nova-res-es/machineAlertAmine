@@ -120,6 +120,16 @@ const CallDashboard = () => {
       if (apiFilters.status === "all") delete apiFilters.status
       if (!apiFilters.date) delete apiFilters.date
 
+      const statusByTab = {
+        pending: "Pendiente",
+        completed: "Realizada",
+        expired: "Expirada",
+      }
+
+      if (statusByTab[activeTab]) {
+        apiFilters.status = statusByTab[activeTab]
+      }
+
       const paginationParams = {
         page,
         limit: pagination.limit,
@@ -192,6 +202,7 @@ const CallDashboard = () => {
     isUAP23,
     pagination.page,
     pagination.limit,
+    activeTab,
   ],
 )
 
@@ -704,6 +715,13 @@ const getZoneLabel = (zone) => {
   }, [])
 
   // Filter calls based on active tab
+  const handleTabChange = (tab) => {
+  setActiveTab(tab)
+  setPagination((previous) => ({
+    ...previous,
+    page: 1,
+  }))
+}
   const filteredCalls = useMemo(() => {
     return calls.filter((call) => {
       if (activeTab === "all") return true
@@ -1134,7 +1152,7 @@ const getZoneLabel = (zone) => {
             </div>
           </CardHeader>
           <CardContent className="p-6">
-            <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="mb-6">
+            <Tabs defaultValue="all" value={activeTab} onValueChange={handleTabChange} className="mb-6">
               <TabsList className="grid w-full h-12 grid-cols-4">
                 <TabsTrigger value="all" className="text-base">
                   Todas

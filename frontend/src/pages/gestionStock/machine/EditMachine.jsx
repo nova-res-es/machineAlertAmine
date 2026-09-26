@@ -246,10 +246,6 @@ const EditMachine = () => {
         Inyección UAP1
       </SelectItem>
 
-      <SelectItem value="UAP23_PINTURA">
-        Pintura UAP2/3
-      </SelectItem>
-
       <SelectItem value="UAP23_INYECCION">
         Inyección UAP2/3
       </SelectItem>
