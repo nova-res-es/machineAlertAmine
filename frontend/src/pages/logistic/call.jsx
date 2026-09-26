@@ -1211,6 +1211,11 @@ const getZoneLabel = (zone) => {
                           <TableCell className="py-4 text-base font-medium">
                             <div className="flex flex-col gap-2">
                               <span>{getMachineNames(call)}</span>
+                              {call.referenceId?.puestoId?.name && (
+                                <span className="text-sm text-muted-foreground">
+                                  Puesto: {call.referenceId.puestoId.name}
+                                </span>
+                              )}
                               {call.callType === "mole" && (
                                 <Badge
                                   variant="outline"

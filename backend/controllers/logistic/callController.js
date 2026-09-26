@@ -166,7 +166,12 @@ exports.getCalls = async (req, res) => {
     const populateCalls = (query) =>
       query
         .populate("machines", "name description status duration factoryId zone")
-        .populate("referenceId", "name description duration puestoId")
+        .populate({path: "referenceId", select: "name description duration puestoId",
+            populate: {
+              path: "puestoId",
+              select: "name",
+              },
+        })
 
     let calls = []
     let total = 0
